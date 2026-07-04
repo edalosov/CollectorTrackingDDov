@@ -24,6 +24,7 @@ export const collections = pgTable("collections", {
 export const collectors = pgTable("collectors", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -15,6 +15,10 @@ holders across all your tracked collections.
 - **Collectors** (`/`): an aggregate view across every tracked collection, with
   filters for collection, min/max NFTs owned, and address/nickname search. A
   **Sync all collections** button re-syncs every tracked collection in one click.
+  A **Comments** column next to the breakdown lets you jot free-text notes on
+  any named collector (clamped to ~2 lines with a "See more" toggle so a long
+  comment doesn't blow out the row); requires a nickname first, since comments
+  live on the collector, not an individual wallet.
 - **Change log sidebar**: a persistent right-hand panel (desktop only) showing
   holder balance changes detected between syncs (e.g. "wallet X: 2 → 1", "wallet
   Y: 0 → 1") for every tracked collection. Polls every 20s; new data only shows
@@ -79,7 +83,7 @@ If you ever want to run it on your own machine instead:
 
 - `collections`: one row per tracked contract address.
 - `collectors`: one row per named person, who may control more than one
-  wallet. The nickname lives here, not on an individual wallet.
+  wallet. The nickname and free-text notes live here, not on an individual wallet.
 - `wallets`: one row per Ethereum address ever seen holding something, with an
   optional `collectorId` linking it to a named collector. Multiple wallets
   can point at the same collector — that's how the "add another wallet under

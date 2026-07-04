@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       walletAddress: holdings.walletAddress,
       collectorId: wallets.collectorId,
       nickname: collectors.name,
+      notes: collectors.notes,
       tokenId: holdings.tokenId,
       balance: holdings.balance,
       collectionId: collections.id,
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
     {
       collectorId: number | null;
       nickname: string | null;
+      notes: string | null;
       walletAddresses: Set<string>;
       totalCount: number;
       byCollection: Map<number, CollectionBreakdown>;
@@ -69,6 +71,7 @@ export async function GET(req: NextRequest) {
     const entry = byGroup.get(groupKey) ?? {
       collectorId: row.collectorId,
       nickname: row.nickname,
+      notes: row.notes,
       walletAddresses: new Set<string>(),
       totalCount: 0,
       byCollection: new Map<number, CollectionBreakdown>(),
@@ -110,6 +113,7 @@ export async function GET(req: NextRequest) {
       collectorId: v.collectorId,
       walletAddresses: [...v.walletAddresses],
       nickname: v.nickname,
+      notes: v.notes,
       totalCount: v.totalCount,
       collections: collectionsList,
       filteredCount,

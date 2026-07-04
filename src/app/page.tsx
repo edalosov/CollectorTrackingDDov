@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CollectorCell } from "@/components/CollectorCell";
+import { CommentsCell } from "@/components/CommentsCell";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
 import { shortenAddress } from "@/lib/format";
 
@@ -30,6 +31,7 @@ interface CollectorRow {
   collectorId: number | null;
   walletAddresses: string[];
   nickname: string | null;
+  notes: string | null;
   totalCount: number;
   filteredCount: number;
   collections: CollectionBreakdown[];
@@ -174,6 +176,7 @@ export default function CollectorsPage() {
                 {collectionId ? "NFTs in this collection" : "Total NFTs"}
               </th>
               <th className="py-2 pr-4">Breakdown</th>
+              <th className="py-2 pr-4">Comments</th>
             </tr>
           </thead>
           <tbody>
@@ -213,6 +216,19 @@ export default function CollectorsPage() {
                       </div>
                     ))}
                   </div>
+                </td>
+                <td className="py-2 pr-4">
+                  <CommentsCell
+                    collectorId={r.collectorId}
+                    notes={r.notes}
+                    onSaved={(notes) =>
+                      setRows((prev) =>
+                        prev.map((p) =>
+                          p.groupKey === r.groupKey ? { ...p, notes } : p,
+                        ),
+                      )
+                    }
+                  />
                 </td>
               </tr>
             ))}
