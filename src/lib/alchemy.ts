@@ -111,3 +111,74 @@ export async function getOwnersForContract(
 
   return results;
 }
+
+export interface TokenMetadata {
+  tokenId: string;
+  name: string | null;
+  imageUrl: string | null;
+}
+
+interface AlchemyNftMetadataItem {
+  tokenId: string;
+  name?: string;
+  image?: {
+    cachedUrl?: string;
+    thumbnailUrl?: string;
+    originalUrl?: string;
+  };
+  raw?: { metadata?: { name?: string } };
+}
+
+const METADATA_BATCH_SIZE = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
+// Fetches name + thumbnail image for a specific set of token IDs (as opposed
+// to paging through the whole contract), since we already know which token
+// IDs are actually owned from getOwnersForContract.
+export async function getNFTMetadataBatch(
+  contractAddress: string,
+  tokenIds: string[],
+): Promise<TokenMetadata[]> {
+  const results: TokenMetadata[] = [];
+
+  for (const group of chunk(tokenIds, METADATA_BATCH_SIZE)) {
+    const res = await fetch(
+      `${ALCHEMY_BASE}/${getApiKey()}/getNFTMetadataBatch`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokens: group.map((tokenId) => ({ contractAddress, tokenId })),
+        }),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `Alchemy getNFTMetadataBatch request failed: ${res.status} ${res.statusText} ${body}`,
+      );
+    }
+
+    const data = (await res.json()) as { nfts: AlchemyNftMetadataItem[] };
+    for (const nft of data.nfts) {
+      results.push({
+        tokenId: hexToDecimalString(nft.tokenId),
+        name: nft.name ?? nft.raw?.metadata?.name ?? null,
+        imageUrl:
+          nft.image?.thumbnailUrl ??
+          nft.image?.cachedUrl ??
+          nft.image?.originalUrl ??
+          null,
+      });
+    }
+  }
+
+  return results;
+}

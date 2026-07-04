@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { db } from "@/lib/db";
-import { collections, wallets, holdings } from "@/lib/db/schema";
-import { getOwnersForContract } from "@/lib/alchemy";
+import { collections, wallets, holdings, tokens } from "@/lib/db/schema";
+import { getOwnersForContract, getNFTMetadataBatch } from "@/lib/alchemy";
 import { normalizeAddress } from "@/lib/address";
 
 const CHUNK_SIZE = 1000;
@@ -41,11 +41,22 @@ export async function POST(
   }
 
   const uniqueWallets = [...new Set(ownerHoldings.map((h) => h.ownerAddress))];
+  const uniqueTokenIds = [...new Set(ownerHoldings.map((h) => h.tokenId))];
+
+  // Thumbnails are a nice-to-have: if Alchemy's metadata call fails (rate
+  // limit, etc.), still sync ownership data rather than failing the sync.
+  let tokenMetadata: Awaited<ReturnType<typeof getNFTMetadataBatch>> = [];
+  try {
+    tokenMetadata = await getNFTMetadataBatch(address, uniqueTokenIds);
+  } catch (err) {
+    console.error("Failed to fetch NFT metadata/images:", err);
+  }
 
   // Replace the collection's holdings snapshot in one atomic batch: this is a
   // full-refresh sync (not incremental), so stale rows must go before new ones land.
   const operations: BatchItem<"pg">[] = [
     db.delete(holdings).where(eq(holdings.collectionId, collection.id)),
+    db.delete(tokens).where(eq(tokens.collectionId, collection.id)),
   ];
 
   for (const group of chunk(uniqueWallets, CHUNK_SIZE)) {
@@ -70,6 +81,22 @@ export async function POST(
           })),
         )
         .onConflictDoNothing(),
+    );
+  }
+
+  for (const group of chunk(tokenMetadata, CHUNK_SIZE)) {
+    operations.push(
+      db
+        .insert(tokens)
+        .values(
+          group.map((t) => ({
+            collectionId: collection.id,
+            tokenId: t.tokenId,
+            name: t.name,
+            imageUrl: t.imageUrl,
+          })),
+        )
+        .onConflictDoNothing({ target: [tokens.collectionId, tokens.tokenId] }),
     );
   }
 

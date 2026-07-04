@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { collections, holdings, wallets } from "@/lib/db/schema";
+import { collections, holdings, tokens, wallets } from "@/lib/db/schema";
 import { normalizeAddress } from "@/lib/address";
 
 export async function GET(
@@ -24,24 +24,43 @@ export async function GET(
       nickname: wallets.nickname,
       tokenId: holdings.tokenId,
       balance: holdings.balance,
+      tokenName: tokens.name,
+      tokenImageUrl: tokens.imageUrl,
     })
     .from(holdings)
     .leftJoin(wallets, eq(wallets.address, holdings.walletAddress))
+    .leftJoin(
+      tokens,
+      and(
+        eq(tokens.collectionId, holdings.collectionId),
+        eq(tokens.tokenId, holdings.tokenId),
+      ),
+    )
     .where(eq(holdings.collectionId, collection.id));
+
+  interface HeldToken {
+    tokenId: string;
+    name: string | null;
+    imageUrl: string | null;
+  }
 
   const byWallet = new Map<
     string,
-    { nickname: string | null; tokenCount: number; tokenIds: string[] }
+    { nickname: string | null; tokenCount: number; heldTokens: HeldToken[] }
   >();
 
   for (const row of rows) {
     const entry = byWallet.get(row.walletAddress) ?? {
       nickname: row.nickname,
       tokenCount: 0,
-      tokenIds: [],
+      heldTokens: [],
     };
     entry.tokenCount += row.balance;
-    entry.tokenIds.push(row.tokenId);
+    entry.heldTokens.push({
+      tokenId: row.tokenId,
+      name: row.tokenName,
+      imageUrl: row.tokenImageUrl,
+    });
     byWallet.set(row.walletAddress, entry);
   }
 

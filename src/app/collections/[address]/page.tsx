@@ -3,13 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { NicknameEditor } from "@/components/NicknameEditor";
+import { TokenThumbnails } from "@/components/TokenThumbnails";
 import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
+
+interface HeldToken {
+  tokenId: string;
+  name: string | null;
+  imageUrl: string | null;
+}
 
 interface Holder {
   walletAddress: string;
   nickname: string | null;
   tokenCount: number;
-  tokenIds: string[];
+  heldTokens: HeldToken[];
 }
 
 interface CollectionInfo {
@@ -157,7 +164,7 @@ export default function CollectionDetailPage() {
               <th className="py-2 pr-4">#</th>
               <th className="py-2 pr-4">Collector</th>
               <th className="py-2 pr-4">NFTs owned</th>
-              <th className="py-2 pr-4">Token IDs</th>
+              <th className="py-2 pr-4">Tokens</th>
             </tr>
           </thead>
           <tbody>
@@ -193,10 +200,11 @@ export default function CollectionDetailPage() {
                   </div>
                 </td>
                 <td className="py-2 pr-4 font-medium">{h.tokenCount}</td>
-                <td className="max-w-md py-2 pr-4 text-neutral-400">
-                  {h.tokenIds.slice(0, 20).join(", ")}
-                  {h.tokenIds.length > 20 &&
-                    ` +${h.tokenIds.length - 20} more`}
+                <td className="py-2 pr-4">
+                  <TokenThumbnails
+                    contractAddress={collection.address}
+                    tokens={h.heldTokens}
+                  />
                 </td>
               </tr>
             ))}

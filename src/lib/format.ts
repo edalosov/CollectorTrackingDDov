@@ -5,3 +5,10 @@ export function shortenAddress(address: string): string {
 export function etherscanAddressUrl(address: string): string {
   return `https://etherscan.io/address/${address}`;
 }
+
+export function etherscanTokenUrl(
+  contractAddress: string,
+  tokenId: string,
+): string {
+  return `https://etherscan.io/nft/${contractAddress}/${tokenId}`;
+}

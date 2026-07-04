@@ -10,7 +10,8 @@ holders across all your tracked collections.
   track. Each has a manual **Sync** button that pulls the current owner list from
   Alchemy's NFT API and replaces the stored snapshot for that collection.
 - **Collection detail** (`/collections/[address]`): every holder of that
-  collection, how many tokens they hold, and which specific token IDs.
+  collection, how many tokens they hold, and a thumbnail for each specific
+  NFT they own.
 - **Collectors** (`/`): an aggregate view across every tracked collection, with
   filters for collection, min/max NFTs owned, and address/nickname search.
 - Any wallet address can be given a **nickname** (click it inline anywhere it
@@ -66,6 +67,9 @@ If you ever want to run it on your own machine instead:
   optional nickname.
 - `holdings`: one row per (collection, token ID, wallet) — the source of truth
   for "who owns what." Each sync fully replaces the rows for that collection.
+- `tokens`: one row per (collection, token ID) with its name and thumbnail
+  image URL, used to render NFT thumbnails next to each holder's tokens. Also
+  replaced in full on each sync.
 
 ## Useful scripts
 

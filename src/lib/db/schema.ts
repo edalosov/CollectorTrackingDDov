@@ -47,3 +47,22 @@ export const holdings = pgTable(
     index("holdings_wallet_idx").on(table.walletAddress),
   ],
 );
+
+export const tokens = pgTable(
+  "tokens",
+  {
+    id: serial("id").primaryKey(),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    tokenId: text("token_id").notNull(),
+    name: text("name"),
+    imageUrl: text("image_url"),
+  },
+  (table) => [
+    uniqueIndex("tokens_collection_token_idx").on(
+      table.collectionId,
+      table.tokenId,
+    ),
+  ],
+);
