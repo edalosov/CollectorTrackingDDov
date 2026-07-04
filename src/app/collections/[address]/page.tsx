@@ -38,6 +38,7 @@ export default function CollectionDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncInfo, setSyncInfo] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [minCount, setMinCount] = useState("");
 
@@ -61,6 +62,7 @@ export default function CollectionDetailPage() {
   async function handleSync() {
     setSyncing(true);
     setSyncError(null);
+    setSyncInfo(null);
     try {
       const res = await fetch(`/api/collections/${address}/sync`, {
         method: "POST",
@@ -70,9 +72,21 @@ export default function CollectionDetailPage() {
         setSyncError(data.error ?? "Sync failed");
         return;
       }
+
+      const warnings: string[] = [];
       if (data.metadataWarning) {
-        setSyncError(`Synced holders, but couldn't fetch NFT images: ${data.metadataWarning}`);
+        warnings.push(`NFT images: ${data.metadataWarning}`);
       }
+      if (data.activityWarning) {
+        warnings.push(`Activity feed: ${data.activityWarning}`);
+      }
+      if (warnings.length > 0) {
+        setSyncError(`Synced holders, but: ${warnings.join(" | ")}`);
+      }
+
+      setSyncInfo(
+        `Synced ${data.holderCount ?? 0} holders, ${data.tokenCount ?? 0} tokens, ${data.newActivityCount ?? 0} new activity event${data.newActivityCount === 1 ? "" : "s"}.`,
+      );
       await load();
     } finally {
       setSyncing(false);
@@ -137,6 +151,9 @@ export default function CollectionDetailPage() {
             {syncing ? "Syncing..." : "Sync now"}
           </button>
           {syncError && <p className="text-xs text-red-400">{syncError}</p>}
+          {!syncError && syncInfo && (
+            <p className="text-xs text-neutral-500">{syncInfo}</p>
+          )}
         </div>
       </div>
 
