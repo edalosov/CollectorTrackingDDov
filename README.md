@@ -27,40 +27,37 @@ API calls happen.
 - [Alchemy NFT API](https://www.alchemy.com/docs/reference/nft-api-endpoints) for
   contract metadata and owner/token data (Ethereum mainnet only)
 
-## Local setup
+## Deploying to Vercel (no local setup required)
+
+The database schema is created automatically on every deploy — `npm run build`
+runs `drizzle-kit migrate` (applying the committed SQL files in `./drizzle`)
+before `next build`, so there's no manual migration step to run yourself,
+locally or otherwise.
 
 1. **Get an Alchemy API key**: sign up at [alchemy.com](https://www.alchemy.com/),
    create an app on **Ethereum Mainnet**, and copy the API key.
-2. **Get a Postgres database**: easiest is a free [Neon](https://neon.tech) project
-   (or provision Postgres from your Vercel dashboard, which is backed by Neon) —
-   copy the connection string.
-3. Copy `.env.example` to `.env.local` and fill in both values:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Install dependencies and push the schema to your database:
-   ```bash
-   npm install
-   npm run db:push
-   ```
-5. Run the dev server:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000).
+2. Push this repo to GitHub (if it isn't already) and import it in Vercel.
+3. In the Vercel dashboard, add a Postgres database to the project (Storage tab →
+   Postgres, powered by Neon) — this auto-injects `DATABASE_URL` into the
+   project's environment variables for you.
+4. In Project Settings → Environment Variables, add `ALCHEMY_API_KEY` with the
+   key from step 1.
+5. Deploy (or redeploy if it already ran before you added the env vars). The
+   build will create the `collections`/`wallets`/`holdings` tables in your new
+   database automatically, then build the app.
+6. The app has no login/auth — treat the deployment URL as something only you
+   should have, since anyone with the link can view and edit the data.
 
-## Deploying to Vercel
+## Local setup (optional)
 
-1. Push this repo to GitHub and import it in Vercel.
-2. In the Vercel dashboard, add a Postgres database to the project (Storage tab →
-   Postgres, powered by Neon) — this auto-injects `DATABASE_URL` into your
-   deployment's environment variables.
-3. Add an `ALCHEMY_API_KEY` environment variable in the project settings.
-4. After the first deploy, run the schema push once against the production
-   database (from your machine, with the production `DATABASE_URL` in your
-   shell env): `npm run db:push`.
-5. Redeploy. The app has no login/auth — treat the deployment URL as something
-   only you should have, since anyone with the link can view and edit the data.
+If you ever want to run it on your own machine instead:
+
+1. Copy `.env.example` to `.env.local` and fill in `DATABASE_URL` and
+   `ALCHEMY_API_KEY`.
+2. `npm install`
+3. `npm run dev` — the dev server does **not** auto-run migrations, so the
+   first time against a fresh database run `npm run db:push` once.
+4. Open [http://localhost:3000](http://localhost:3000).
 
 ## Database schema notes
 
