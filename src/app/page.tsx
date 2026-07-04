@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { NicknameEditor } from "@/components/NicknameEditor";
+import { TokenThumbnails } from "@/components/TokenThumbnails";
 import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
 
 interface CollectionOption {
@@ -10,17 +11,26 @@ interface CollectionOption {
   name: string | null;
 }
 
+interface HeldToken {
+  tokenId: string;
+  name: string | null;
+  imageUrl: string | null;
+}
+
+interface CollectionBreakdown {
+  collectionId: number;
+  address: string;
+  name: string | null;
+  count: number;
+  heldTokens: HeldToken[];
+}
+
 interface CollectorRow {
   walletAddress: string;
   nickname: string | null;
   totalCount: number;
   filteredCount: number;
-  collections: {
-    collectionId: number;
-    address: string;
-    name: string | null;
-    count: number;
-  }[];
+  collections: CollectionBreakdown[];
 }
 
 export default function CollectorsPage() {
@@ -153,13 +163,21 @@ export default function CollectorsPage() {
                   </div>
                 </td>
                 <td className="py-2 pr-4 font-medium">{r.filteredCount}</td>
-                <td className="py-2 pr-4 text-neutral-400">
-                  {r.collections
-                    .map(
-                      (c) =>
-                        `${c.name ?? shortenAddress(c.address)}: ${c.count}`,
-                    )
-                    .join(", ")}
+                <td className="py-2 pr-4">
+                  <div className="flex flex-col gap-3">
+                    {r.collections.map((c) => (
+                      <div key={c.collectionId}>
+                        <div className="mb-1 text-xs text-neutral-400">
+                          {c.name ?? shortenAddress(c.address)}: {c.count}
+                        </div>
+                        <TokenThumbnails
+                          contractAddress={c.address}
+                          tokens={c.heldTokens}
+                          max={6}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </td>
               </tr>
             ))}
