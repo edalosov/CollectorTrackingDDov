@@ -70,6 +70,9 @@ export default function CollectionDetailPage() {
         setSyncError(data.error ?? "Sync failed");
         return;
       }
+      if (data.metadataWarning) {
+        setSyncError(`Synced holders, but couldn't fetch NFT images: ${data.metadataWarning}`);
+      }
       await load();
     } finally {
       setSyncing(false);

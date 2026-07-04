@@ -46,9 +46,11 @@ export async function POST(
   // Thumbnails are a nice-to-have: if Alchemy's metadata call fails (rate
   // limit, etc.), still sync ownership data rather than failing the sync.
   let tokenMetadata: Awaited<ReturnType<typeof getNFTMetadataBatch>> = [];
+  let metadataWarning: string | null = null;
   try {
     tokenMetadata = await getNFTMetadataBatch(address, uniqueTokenIds);
   } catch (err) {
+    metadataWarning = err instanceof Error ? err.message : "Alchemy metadata request failed";
     console.error("Failed to fetch NFT metadata/images:", err);
   }
 
@@ -112,5 +114,6 @@ export async function POST(
   return NextResponse.json({
     holderCount: uniqueWallets.length,
     tokenCount: ownerHoldings.length,
+    metadataWarning,
   });
 }
