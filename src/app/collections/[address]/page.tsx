@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { NicknameEditor } from "@/components/NicknameEditor";
+import { CollectorCell } from "@/components/CollectorCell";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
-import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
+import { etherscanAddressUrl } from "@/lib/format";
 
 interface HeldToken {
   tokenId: string;
@@ -13,7 +13,9 @@ interface HeldToken {
 }
 
 interface Holder {
-  walletAddress: string;
+  groupKey: string;
+  collectorId: number | null;
+  walletAddresses: string[];
   nickname: string | null;
   tokenCount: number;
   heldTokens: HeldToken[];
@@ -92,7 +94,7 @@ export default function CollectionDetailPage() {
       if (search) {
         const s = search.toLowerCase();
         if (
-          !h.walletAddress.includes(s) &&
+          !h.walletAddresses.some((a) => a.includes(s)) &&
           !(h.nickname?.toLowerCase().includes(s) ?? false)
         ) {
           return false;
@@ -183,34 +185,23 @@ export default function CollectionDetailPage() {
           <tbody>
             {filtered.map((h, i) => (
               <tr
-                key={h.walletAddress}
+                key={h.groupKey}
                 className="border-b border-neutral-900 align-top"
               >
                 <td className="py-2 pr-4 text-neutral-500">{i + 1}</td>
                 <td className="py-2 pr-4">
-                  <NicknameEditor
-                    address={h.walletAddress}
+                  <CollectorCell
+                    walletAddresses={h.walletAddresses}
                     nickname={h.nickname}
                     onSaved={(nickname) =>
                       setHolders((prev) =>
                         prev.map((p) =>
-                          p.walletAddress === h.walletAddress
-                            ? { ...p, nickname }
-                            : p,
+                          p.groupKey === h.groupKey ? { ...p, nickname } : p,
                         ),
                       )
                     }
+                    onMerged={load}
                   />
-                  <div>
-                    <a
-                      href={etherscanAddressUrl(h.walletAddress)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-neutral-500 hover:underline"
-                    >
-                      {shortenAddress(h.walletAddress)}
-                    </a>
-                  </div>
                 </td>
                 <td className="py-2 pr-4 font-medium">{h.tokenCount}</td>
                 <td className="py-2 pr-4">

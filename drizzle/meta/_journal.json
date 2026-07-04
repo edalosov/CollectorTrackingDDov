@@ -36,6 +36,27 @@
       "when": 1783204810026,
       "tag": "0004_mature_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783206579326,
+      "tag": "0005_dear_the_santerians",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783206591727,
+      "tag": "0006_migrate-nicknames-to-collectors",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783206610576,
+      "tag": "0007_damp_the_executioner",
+      "breakpoints": true
     }
   ]
 }

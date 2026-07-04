@@ -18,9 +18,20 @@ export const collections = pgTable("collections", {
   lastSyncedAt: timestamp("last_synced_at"),
 });
 
+// A collector is a person, who may control more than one wallet address.
+// The nickname lives here rather than on an individual wallet, so multiple
+// addresses can be merged under one name with their holdings combined.
+export const collectors = pgTable("collectors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const wallets = pgTable("wallets", {
   address: text("address").primaryKey(), // lowercase 0x...
-  nickname: text("nickname"),
+  collectorId: integer("collector_id").references(() => collectors.id, {
+    onDelete: "set null",
+  }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

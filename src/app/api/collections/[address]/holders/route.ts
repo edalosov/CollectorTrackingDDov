@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { collections, holdings, tokens, wallets } from "@/lib/db/schema";
+import { collections, collectors, holdings, tokens, wallets } from "@/lib/db/schema";
 import { normalizeAddress } from "@/lib/address";
 
 export async function GET(
@@ -21,7 +21,8 @@ export async function GET(
   const rows = await db
     .select({
       walletAddress: holdings.walletAddress,
-      nickname: wallets.nickname,
+      collectorId: wallets.collectorId,
+      nickname: collectors.name,
       tokenId: holdings.tokenId,
       balance: holdings.balance,
       tokenName: tokens.name,
@@ -29,6 +30,7 @@ export async function GET(
     })
     .from(holdings)
     .leftJoin(wallets, eq(wallets.address, holdings.walletAddress))
+    .leftJoin(collectors, eq(collectors.id, wallets.collectorId))
     .leftJoin(
       tokens,
       and(
@@ -44,28 +46,49 @@ export async function GET(
     imageUrl: string | null;
   }
 
-  const byWallet = new Map<
+  // Group by collector when the wallet belongs to one (so merged wallets
+  // combine into a single row), otherwise each ungrouped wallet is its own
+  // group of one.
+  const byGroup = new Map<
     string,
-    { nickname: string | null; tokenCount: number; heldTokens: HeldToken[] }
+    {
+      collectorId: number | null;
+      nickname: string | null;
+      walletAddresses: Set<string>;
+      tokenCount: number;
+      heldTokens: HeldToken[];
+    }
   >();
 
   for (const row of rows) {
-    const entry = byWallet.get(row.walletAddress) ?? {
+    const groupKey =
+      row.collectorId != null ? `c:${row.collectorId}` : `w:${row.walletAddress}`;
+    const entry = byGroup.get(groupKey) ?? {
+      collectorId: row.collectorId,
       nickname: row.nickname,
+      walletAddresses: new Set<string>(),
       tokenCount: 0,
       heldTokens: [],
     };
+    entry.walletAddresses.add(row.walletAddress);
     entry.tokenCount += row.balance;
     entry.heldTokens.push({
       tokenId: row.tokenId,
       name: row.tokenName,
       imageUrl: row.tokenImageUrl,
     });
-    byWallet.set(row.walletAddress, entry);
+    byGroup.set(groupKey, entry);
   }
 
-  const holders = [...byWallet.entries()]
-    .map(([walletAddress, v]) => ({ walletAddress, ...v }))
+  const holders = [...byGroup.entries()]
+    .map(([groupKey, v]) => ({
+      groupKey,
+      collectorId: v.collectorId,
+      nickname: v.nickname,
+      walletAddresses: [...v.walletAddresses],
+      tokenCount: v.tokenCount,
+      heldTokens: v.heldTokens,
+    }))
     .sort((a, b) => b.tokenCount - a.tokenCount);
 
   return NextResponse.json({ collection, holders });

@@ -22,6 +22,12 @@ holders across all your tracked collections.
   snapshot against the previous one — no separate Alchemy call, so it costs
   nothing extra. A collection's first-ever sync never logs changes (there's no
   "previous" snapshot to diff against yet); logging starts from its second sync.
+- Any wallet address can be given a **nickname** (click it inline anywhere it
+  appears) so you can recognize collectors without memorizing addresses. Click
+  the **+** next to a nickname to add another wallet address under the same
+  name — useful when you know someone splits their collection across multiple
+  wallets. Merged wallets show as a single row everywhere, with their holdings
+  combined.
 
 Syncing is manual only — nothing polls Alchemy in the background, so you
 control when API calls happen. This intentionally does not track transfer
@@ -72,8 +78,12 @@ If you ever want to run it on your own machine instead:
 ## Database schema notes
 
 - `collections`: one row per tracked contract address.
-- `wallets`: one row per Ethereum address ever seen holding something, plus its
-  optional nickname.
+- `collectors`: one row per named person, who may control more than one
+  wallet. The nickname lives here, not on an individual wallet.
+- `wallets`: one row per Ethereum address ever seen holding something, with an
+  optional `collectorId` linking it to a named collector. Multiple wallets
+  can point at the same collector — that's how the "add another wallet under
+  this nickname" feature works.
 - `holdings`: one row per (collection, token ID, wallet) — the source of truth
   for "who owns what." Each sync fully replaces the rows for that collection.
 - `tokens`: one row per (collection, token ID) with its name and thumbnail

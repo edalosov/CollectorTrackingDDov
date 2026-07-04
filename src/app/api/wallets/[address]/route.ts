@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { wallets } from "@/lib/db/schema";
+import { collectors, wallets } from "@/lib/db/schema";
 import { isValidAddress, normalizeAddress } from "@/lib/address";
+import { deleteCollectorIfOrphaned } from "@/lib/collectors";
 
 export async function PATCH(
   req: NextRequest,
@@ -17,12 +19,51 @@ export async function PATCH(
   const nickname =
     typeof body?.nickname === "string" ? body.nickname.trim() || null : null;
 
+  const [existingWallet] = await db
+    .select()
+    .from(wallets)
+    .where(eq(wallets.address, address));
+
+  if (nickname === null) {
+    // Clearing only detaches this one wallet from its group — other wallets
+    // sharing the same collector keep their nickname.
+    if (existingWallet?.collectorId) {
+      const oldCollectorId = existingWallet.collectorId;
+      await db
+        .update(wallets)
+        .set({ collectorId: null, updatedAt: new Date() })
+        .where(eq(wallets.address, address));
+      await deleteCollectorIfOrphaned(oldCollectorId);
+    } else {
+      await db
+        .insert(wallets)
+        .values({ address })
+        .onConflictDoNothing({ target: wallets.address });
+    }
+    return NextResponse.json({ address, nickname: null });
+  }
+
+  if (existingWallet?.collectorId) {
+    // Wallet is already part of a group: renaming it renames the whole group.
+    await db
+      .update(collectors)
+      .set({ name: nickname })
+      .where(eq(collectors.id, existingWallet.collectorId));
+    return NextResponse.json({ address, nickname });
+  }
+
+  // First time naming this wallet: create a new (initially solo) collector.
+  const [collector] = await db
+    .insert(collectors)
+    .values({ name: nickname })
+    .returning();
+
   await db
     .insert(wallets)
-    .values({ address, nickname, updatedAt: new Date() })
+    .values({ address, collectorId: collector.id })
     .onConflictDoUpdate({
       target: wallets.address,
-      set: { nickname, updatedAt: new Date() },
+      set: { collectorId: collector.id, updatedAt: new Date() },
     });
 
   return NextResponse.json({ address, nickname });

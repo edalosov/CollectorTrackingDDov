@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { collections, ownershipChanges, tokens, wallets } from "@/lib/db/schema";
+import { collections, collectors, ownershipChanges, tokens, wallets } from "@/lib/db/schema";
 
 const LIMIT = 50;
 
@@ -16,7 +16,7 @@ export async function GET() {
       tokenName: tokens.name,
       tokenImageUrl: tokens.imageUrl,
       walletAddress: ownershipChanges.walletAddress,
-      walletNickname: wallets.nickname,
+      walletNickname: collectors.name,
       previousBalance: ownershipChanges.previousBalance,
       newBalance: ownershipChanges.newBalance,
       detectedAt: ownershipChanges.detectedAt,
@@ -31,6 +31,7 @@ export async function GET() {
       ),
     )
     .leftJoin(wallets, eq(wallets.address, ownershipChanges.walletAddress))
+    .leftJoin(collectors, eq(collectors.id, wallets.collectorId))
     .orderBy(desc(ownershipChanges.detectedAt), desc(ownershipChanges.id))
     .limit(LIMIT);
 

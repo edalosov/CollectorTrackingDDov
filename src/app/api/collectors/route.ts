@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { collections, holdings, tokens, wallets } from "@/lib/db/schema";
+import { collections, collectors, holdings, tokens, wallets } from "@/lib/db/schema";
 
 interface HeldToken {
   tokenId: string;
@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
   const rows = await db
     .select({
       walletAddress: holdings.walletAddress,
-      nickname: wallets.nickname,
+      collectorId: wallets.collectorId,
+      nickname: collectors.name,
       tokenId: holdings.tokenId,
       balance: holdings.balance,
       collectionId: collections.id,
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
     .from(holdings)
     .innerJoin(collections, eq(collections.id, holdings.collectionId))
     .leftJoin(wallets, eq(wallets.address, holdings.walletAddress))
+    .leftJoin(collectors, eq(collectors.id, wallets.collectorId))
     .leftJoin(
       tokens,
       and(
@@ -47,21 +49,31 @@ export async function GET(req: NextRequest) {
       ),
     );
 
-  const byWallet = new Map<
+  // Group by collector when the wallet belongs to one (so merged wallets
+  // combine into a single row), otherwise each ungrouped wallet is its own
+  // group of one.
+  const byGroup = new Map<
     string,
     {
+      collectorId: number | null;
       nickname: string | null;
+      walletAddresses: Set<string>;
       totalCount: number;
       byCollection: Map<number, CollectionBreakdown>;
     }
   >();
 
   for (const row of rows) {
-    const entry = byWallet.get(row.walletAddress) ?? {
+    const groupKey =
+      row.collectorId != null ? `c:${row.collectorId}` : `w:${row.walletAddress}`;
+    const entry = byGroup.get(groupKey) ?? {
+      collectorId: row.collectorId,
       nickname: row.nickname,
+      walletAddresses: new Set<string>(),
       totalCount: 0,
       byCollection: new Map<number, CollectionBreakdown>(),
     };
+    entry.walletAddresses.add(row.walletAddress);
     entry.totalCount += row.balance;
 
     const breakdown = entry.byCollection.get(row.collectionId) ?? {
@@ -79,12 +91,12 @@ export async function GET(req: NextRequest) {
     });
     entry.byCollection.set(row.collectionId, breakdown);
 
-    byWallet.set(row.walletAddress, entry);
+    byGroup.set(groupKey, entry);
   }
 
   const collectionIdFilter = collectionIdParam ? Number(collectionIdParam) : null;
 
-  let results = [...byWallet.entries()].map(([walletAddress, v]) => {
+  let results = [...byGroup.entries()].map(([groupKey, v]) => {
     const collectionsList = [...v.byCollection.values()].sort(
       (a, b) => b.count - a.count,
     );
@@ -94,7 +106,9 @@ export async function GET(req: NextRequest) {
       : v.totalCount;
 
     return {
-      walletAddress,
+      groupKey,
+      collectorId: v.collectorId,
+      walletAddresses: [...v.walletAddresses],
       nickname: v.nickname,
       totalCount: v.totalCount,
       collections: collectionsList,
@@ -121,7 +135,7 @@ export async function GET(req: NextRequest) {
   if (search) {
     results = results.filter(
       (r) =>
-        r.walletAddress.includes(search) ||
+        r.walletAddresses.some((a) => a.includes(search)) ||
         (r.nickname?.toLowerCase().includes(search) ?? false),
     );
   }

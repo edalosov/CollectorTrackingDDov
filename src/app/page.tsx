@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { NicknameEditor } from "@/components/NicknameEditor";
+import { CollectorCell } from "@/components/CollectorCell";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
-import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
+import { shortenAddress } from "@/lib/format";
 
 interface CollectionOption {
   id: number;
@@ -26,7 +26,9 @@ interface CollectionBreakdown {
 }
 
 interface CollectorRow {
-  walletAddress: string;
+  groupKey: string;
+  collectorId: number | null;
+  walletAddresses: string[];
   nickname: string | null;
   totalCount: number;
   filteredCount: number;
@@ -177,34 +179,23 @@ export default function CollectorsPage() {
           <tbody>
             {rows.map((r, i) => (
               <tr
-                key={r.walletAddress}
+                key={r.groupKey}
                 className="border-b border-neutral-900 align-top"
               >
                 <td className="py-2 pr-4 text-neutral-500">{i + 1}</td>
                 <td className="py-2 pr-4">
-                  <NicknameEditor
-                    address={r.walletAddress}
+                  <CollectorCell
+                    walletAddresses={r.walletAddresses}
                     nickname={r.nickname}
                     onSaved={(nickname) =>
                       setRows((prev) =>
                         prev.map((p) =>
-                          p.walletAddress === r.walletAddress
-                            ? { ...p, nickname }
-                            : p,
+                          p.groupKey === r.groupKey ? { ...p, nickname } : p,
                         ),
                       )
                     }
+                    onMerged={load}
                   />
-                  <div>
-                    <a
-                      href={etherscanAddressUrl(r.walletAddress)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-neutral-500 hover:underline"
-                    >
-                      {shortenAddress(r.walletAddress)}
-                    </a>
-                  </div>
                 </td>
                 <td className="py-2 pr-4 font-medium">{r.filteredCount}</td>
                 <td className="py-2 pr-4">
