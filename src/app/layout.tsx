@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { ActivityFeed } from "@/components/ActivityFeed";
+import { ChangeLog } from "@/components/ChangeLog";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -51,7 +51,7 @@ export default function RootLayout({
         </header>
         <div className="mx-auto flex w-full max-w-7xl flex-1 items-start">
           <main className="min-w-0 flex-1 px-4 py-8">{children}</main>
-          <ActivityFeed />
+          <ChangeLog />
         </div>
       </body>
     </html>

@@ -73,19 +73,12 @@ export default function CollectionDetailPage() {
         return;
       }
 
-      const warnings: string[] = [];
       if (data.metadataWarning) {
-        warnings.push(`NFT images: ${data.metadataWarning}`);
-      }
-      if (data.activityWarning) {
-        warnings.push(`Activity feed: ${data.activityWarning}`);
-      }
-      if (warnings.length > 0) {
-        setSyncError(`Synced holders, but: ${warnings.join(" | ")}`);
+        setSyncError(`Synced holders, but couldn't fetch NFT images: ${data.metadataWarning}`);
       }
 
       setSyncInfo(
-        `Synced ${data.holderCount ?? 0} holders, ${data.tokenCount ?? 0} tokens, ${data.newActivityCount ?? 0} new activity event${data.newActivityCount === 1 ? "" : "s"}.`,
+        `Synced ${data.holderCount ?? 0} holders, ${data.tokenCount ?? 0} tokens, ${data.changeCount ?? 0} change${data.changeCount === 1 ? "" : "s"} logged.`,
       );
       await load();
     } finally {

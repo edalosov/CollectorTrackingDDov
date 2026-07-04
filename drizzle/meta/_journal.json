@@ -22,6 +22,20 @@
       "when": 1783203392346,
       "tag": "0002_magical_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783204802336,
+      "tag": "0003_typical_onslaught",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783204810026,
+      "tag": "0004_mature_toxin",
+      "breakpoints": true
     }
   ]
 }

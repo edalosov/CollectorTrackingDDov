@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { db } from "@/lib/db";
-import { collections, wallets, holdings, tokens, activity } from "@/lib/db/schema";
 import {
-  getOwnersForContract,
-  getNFTMetadataBatch,
-  getRecentTransfers,
-  getRecentSales,
-} from "@/lib/alchemy";
+  collections,
+  wallets,
+  holdings,
+  tokens,
+  ownershipChanges,
+} from "@/lib/db/schema";
+import { getOwnersForContract, getNFTMetadataBatch } from "@/lib/alchemy";
 
 const CHUNK_SIZE = 1000;
 
@@ -24,19 +25,34 @@ export interface SyncResult {
   address: string;
   holderCount: number;
   tokenCount: number;
-  newActivityCount: number;
+  changeCount: number;
   metadataWarning: string | null;
-  activityWarning: string | null;
 }
 
-// Full refresh of one collection: current owners/tokens (replaced wholesale)
-// plus recent transfer/sale activity (appended, never deleted). Ownership
-// data is the primary value, so a failure fetching metadata or activity is
-// downgraded to a warning rather than failing the whole sync.
+// Full refresh of one collection: current owners/tokens (replaced wholesale).
+// Also derives a change log by diffing this fresh snapshot against whatever
+// was stored from the previous sync — no extra Alchemy calls needed for
+// that, just a comparison of our own data. On the very first sync for a
+// collection (no previous snapshot to diff against) nothing is logged,
+// since "everything is new" isn't a useful change log entry.
 export async function syncCollection(collection: {
   id: number;
   address: string;
+  lastSyncedAt: Date | null;
 }): Promise<SyncResult> {
+  const isFirstSync = collection.lastSyncedAt === null;
+
+  const previousHoldings = isFirstSync
+    ? []
+    : await db
+        .select({
+          tokenId: holdings.tokenId,
+          walletAddress: holdings.walletAddress,
+          balance: holdings.balance,
+        })
+        .from(holdings)
+        .where(eq(holdings.collectionId, collection.id));
+
   const ownerHoldings = await getOwnersForContract(collection.address);
 
   const uniqueHolders = [...new Set(ownerHoldings.map((h) => h.ownerAddress))];
@@ -52,53 +68,59 @@ export async function syncCollection(collection: {
     console.error("Failed to fetch NFT metadata/images:", err);
   }
 
-  let transfers: Awaited<ReturnType<typeof getRecentTransfers>> = [];
-  let sales: Awaited<ReturnType<typeof getRecentSales>> = [];
-  let activityWarning: string | null = null;
-  try {
-    [transfers, sales] = await Promise.all([
-      getRecentTransfers(collection.address),
-      getRecentSales(collection.address),
-    ]);
-  } catch (err) {
-    activityWarning =
-      err instanceof Error ? err.message : "Alchemy activity request failed";
-    console.error("Failed to fetch transfer/sale activity:", err);
+  // Diff previous vs. new balances per (tokenId, wallet). This naturally
+  // captures ERC721 transfers as a pair of rows (one wallet -1, another +1)
+  // and ERC1155 partial balance moves as single rows, with no need for any
+  // separate transfer/sale API call.
+  const previousBalanceByKey = new Map<string, number>();
+  for (const h of previousHoldings) {
+    previousBalanceByKey.set(`${h.tokenId}:${h.walletAddress}`, h.balance);
   }
 
-  const salesByTxToken = new Map<string, (typeof sales)[number]>();
-  for (const sale of sales) {
-    salesByTxToken.set(`${sale.txHash}:${sale.tokenId}`, sale);
+  const newBalanceByKey = new Map<string, number>();
+  for (const h of ownerHoldings) {
+    const key = `${h.tokenId}:${h.ownerAddress}`;
+    newBalanceByKey.set(key, (newBalanceByKey.get(key) ?? 0) + h.balance);
   }
 
-  const activityRows = transfers.map((t) => {
-    const sale = salesByTxToken.get(`${t.txHash}:${t.tokenId}`);
-    return {
-      collectionId: collection.id,
-      tokenId: t.tokenId,
-      fromAddress: t.fromAddress,
-      toAddress: t.toAddress,
-      txHash: t.txHash,
-      logIndex: t.logIndex,
-      blockNumber: t.blockNumber,
-      blockTimestamp: t.blockTimestamp ? new Date(t.blockTimestamp) : null,
-      isSale: Boolean(sale),
-      marketplace: sale?.marketplace ?? null,
-      priceWei: sale?.priceWei ?? null,
-      priceSymbol: sale?.priceSymbol ?? null,
-    };
-  });
+  const syncedAt = new Date();
+  const changedKeys = new Set([
+    ...previousBalanceByKey.keys(),
+    ...newBalanceByKey.keys(),
+  ]);
+
+  const changeRows = isFirstSync
+    ? []
+    : [...changedKeys]
+        .map((key) => {
+          const separatorIndex = key.lastIndexOf(":");
+          return {
+            tokenId: key.slice(0, separatorIndex),
+            walletAddress: key.slice(separatorIndex + 1),
+            previousBalance: previousBalanceByKey.get(key) ?? 0,
+            newBalance: newBalanceByKey.get(key) ?? 0,
+          };
+        })
+        .filter((c) => c.previousBalance !== c.newBalance)
+        .map((c) => ({
+          collectionId: collection.id,
+          tokenId: c.tokenId,
+          walletAddress: c.walletAddress,
+          previousBalance: c.previousBalance,
+          newBalance: c.newBalance,
+          detectedAt: syncedAt,
+        }));
 
   const allWalletAddresses = [
     ...new Set([
       ...uniqueHolders,
-      ...activityRows.flatMap((a) => [a.fromAddress, a.toAddress]),
+      ...previousHoldings.map((h) => h.walletAddress),
     ]),
   ];
 
   // Replace the collection's holdings/tokens snapshot in one atomic batch:
   // this is a full-refresh sync (not incremental), so stale rows must go
-  // before new ones land. Activity rows are append-only (never deleted).
+  // before new ones land. Change log rows are append-only (never deleted).
   const operations: BatchItem<"pg">[] = [
     db.delete(holdings).where(eq(holdings.collectionId, collection.id)),
     db.delete(tokens).where(eq(tokens.collectionId, collection.id)),
@@ -145,14 +167,14 @@ export async function syncCollection(collection: {
     );
   }
 
-  for (const group of chunk(activityRows, CHUNK_SIZE)) {
-    operations.push(db.insert(activity).values(group).onConflictDoNothing());
+  for (const group of chunk(changeRows, CHUNK_SIZE)) {
+    operations.push(db.insert(ownershipChanges).values(group));
   }
 
   operations.push(
     db
       .update(collections)
-      .set({ lastSyncedAt: new Date() })
+      .set({ lastSyncedAt: syncedAt })
       .where(eq(collections.id, collection.id)),
   );
 
@@ -163,8 +185,7 @@ export async function syncCollection(collection: {
     address: collection.address,
     holderCount: uniqueHolders.length,
     tokenCount: ownerHoldings.length,
-    newActivityCount: activityRows.length,
+    changeCount: changeRows.length,
     metadataWarning,
-    activityWarning,
   };
 }

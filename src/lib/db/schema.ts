@@ -6,7 +6,6 @@ import {
   timestamp,
   uniqueIndex,
   index,
-  boolean,
 } from "drizzle-orm/pg-core";
 
 export const collections = pgTable("collections", {
@@ -68,36 +67,26 @@ export const tokens = pgTable(
   ],
 );
 
-export const activity = pgTable(
-  "activity",
+// Derived by diffing each sync's freshly-fetched ownership snapshot against
+// what was stored from the previous sync — no separate transfer/sale API
+// calls involved, just a comparison of our own data.
+export const ownershipChanges = pgTable(
+  "ownership_changes",
   {
     id: serial("id").primaryKey(),
     collectionId: integer("collection_id")
       .notNull()
       .references(() => collections.id, { onDelete: "cascade" }),
     tokenId: text("token_id").notNull(),
-    fromAddress: text("from_address")
+    walletAddress: text("wallet_address")
       .notNull()
       .references(() => wallets.address, { onDelete: "cascade" }),
-    toAddress: text("to_address")
-      .notNull()
-      .references(() => wallets.address, { onDelete: "cascade" }),
-    txHash: text("tx_hash").notNull(),
-    logIndex: integer("log_index").notNull(),
-    blockNumber: integer("block_number").notNull(),
-    blockTimestamp: timestamp("block_timestamp"),
-    isSale: boolean("is_sale").notNull().default(false),
-    marketplace: text("marketplace"),
-    priceWei: text("price_wei"), // arbitrary-precision, kept as text like token IDs
-    priceSymbol: text("price_symbol"),
+    previousBalance: integer("previous_balance").notNull(),
+    newBalance: integer("new_balance").notNull(),
+    detectedAt: timestamp("detected_at").notNull(),
   },
   (table) => [
-    uniqueIndex("activity_tx_log_token_idx").on(
-      table.txHash,
-      table.logIndex,
-      table.tokenId,
-    ),
-    index("activity_collection_idx").on(table.collectionId),
-    index("activity_block_idx").on(table.blockNumber),
+    index("ownership_changes_collection_idx").on(table.collectionId),
+    index("ownership_changes_detected_idx").on(table.detectedAt),
   ],
 );
