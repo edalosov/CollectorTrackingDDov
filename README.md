@@ -13,12 +13,20 @@ holders across all your tracked collections.
   collection, how many tokens they hold, and a thumbnail for each specific
   NFT they own.
 - **Collectors** (`/`): an aggregate view across every tracked collection, with
-  filters for collection, min/max NFTs owned, and address/nickname search.
+  filters for collection, min/max NFTs owned, and address/nickname search. A
+  **Sync all collections** button re-syncs every tracked collection in one click.
+- **Activity sidebar**: a persistent right-hand panel (desktop only) showing
+  recent transfers and sales across every tracked collection — sale price and
+  marketplace are shown when Alchemy can identify one, plain transfers
+  otherwise. Polls every 20s; new data only shows up after a sync.
 - Any wallet address can be given a **nickname** (click it inline anywhere it
   appears) so you can recognize collectors without memorizing addresses.
 
-Syncing is manual only — nothing polls in the background, so you control when
-API calls happen.
+Syncing is manual only — nothing polls Alchemy in the background, so you
+control when API calls happen. Each sync fetches the current owner snapshot
+plus the most recent ~1000 transfers and ~300 sales for that collection —
+very high-volume collections may miss older events between syncs, but there's
+no historical backfill by design (keeps this simple and cheap for personal use).
 
 ## Stack
 
@@ -70,6 +78,9 @@ If you ever want to run it on your own machine instead:
 - `tokens`: one row per (collection, token ID) with its name and thumbnail
   image URL, used to render NFT thumbnails next to each holder's tokens. Also
   replaced in full on each sync.
+- `activity`: one row per (transaction, log, token) transfer/sale event.
+  Unlike `holdings`/`tokens`, this is append-only — never deleted, only added
+  to on each sync — since it's a history log, not a current-state snapshot.
 
 ## Useful scripts
 

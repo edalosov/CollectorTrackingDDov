@@ -15,6 +15,13 @@
       "when": 1783202392770,
       "tag": "0001_thin_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783203392346,
+      "tag": "0002_magical_la_nuit",
+      "breakpoints": true
     }
   ]
 }

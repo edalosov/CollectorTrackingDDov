@@ -43,6 +43,8 @@ export default function CollectorsPage() {
   const [minCount, setMinCount] = useState("");
   const [maxCount, setMaxCount] = useState("");
   const [search, setSearch] = useState("");
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllResult, setSyncAllResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/collections")
@@ -68,13 +70,55 @@ export default function CollectorsPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
+  async function handleSyncAll() {
+    setSyncingAll(true);
+    setSyncAllResult(null);
+    try {
+      const res = await fetch("/api/collections/sync-all", { method: "POST" });
+      const data = await res.json();
+      const results: Array<{
+        address: string;
+        name: string | null;
+        ok: boolean;
+        error?: string;
+      }> = data.results ?? [];
+      const failed = results.filter((r) => !r.ok);
+      setSyncAllResult(
+        failed.length === 0
+          ? `Synced ${results.length} collection${results.length === 1 ? "" : "s"}.`
+          : `Synced ${results.length - failed.length} of ${results.length}. Failed: ${failed
+              .map((r) => r.name ?? r.address)
+              .join(", ")}`,
+      );
+      await load();
+    } finally {
+      setSyncingAll(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">Collectors</h1>
-        <p className="text-sm text-neutral-400">
-          Everyone holding NFTs across your tracked collections.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Collectors</h1>
+          <p className="text-sm text-neutral-400">
+            Everyone holding NFTs across your tracked collections.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleSyncAll}
+            disabled={syncingAll}
+            className="rounded bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900 disabled:opacity-50"
+          >
+            {syncingAll ? "Syncing all..." : "Sync all collections"}
+          </button>
+          {syncAllResult && (
+            <p className="max-w-xs text-right text-xs text-neutral-500">
+              {syncAllResult}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">

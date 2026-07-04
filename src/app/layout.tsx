@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">
         <header className="border-b border-neutral-800">
-          <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
+          <nav className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4">
             <Link href="/" className="font-semibold tracking-tight">
               Collector Tracker
             </Link>
@@ -48,9 +49,10 @@ export default function RootLayout({
             </Link>
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-          {children}
-        </main>
+        <div className="mx-auto flex w-full max-w-7xl flex-1 items-start">
+          <main className="min-w-0 flex-1 px-4 py-8">{children}</main>
+          <ActivityFeed />
+        </div>
       </body>
     </html>
   );

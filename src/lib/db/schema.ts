@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const collections = pgTable("collections", {
@@ -64,5 +65,39 @@ export const tokens = pgTable(
       table.collectionId,
       table.tokenId,
     ),
+  ],
+);
+
+export const activity = pgTable(
+  "activity",
+  {
+    id: serial("id").primaryKey(),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    tokenId: text("token_id").notNull(),
+    fromAddress: text("from_address")
+      .notNull()
+      .references(() => wallets.address, { onDelete: "cascade" }),
+    toAddress: text("to_address")
+      .notNull()
+      .references(() => wallets.address, { onDelete: "cascade" }),
+    txHash: text("tx_hash").notNull(),
+    logIndex: integer("log_index").notNull(),
+    blockNumber: integer("block_number").notNull(),
+    blockTimestamp: timestamp("block_timestamp"),
+    isSale: boolean("is_sale").notNull().default(false),
+    marketplace: text("marketplace"),
+    priceWei: text("price_wei"), // arbitrary-precision, kept as text like token IDs
+    priceSymbol: text("price_symbol"),
+  },
+  (table) => [
+    uniqueIndex("activity_tx_log_token_idx").on(
+      table.txHash,
+      table.logIndex,
+      table.tokenId,
+    ),
+    index("activity_collection_idx").on(table.collectionId),
+    index("activity_block_idx").on(table.blockNumber),
   ],
 );
