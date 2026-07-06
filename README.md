@@ -18,7 +18,11 @@ holders across all your tracked collections.
   A **Comments** column next to the breakdown lets you jot free-text notes on
   any named collector (clamped to ~2 lines with a "See more" toggle so a long
   comment doesn't blow out the row); requires a nickname first, since comments
-  live on the collector, not an individual wallet.
+  live on the collector, not an individual wallet. A small **stats panel** at
+  the top shows overview numbers — total collectors, collections tracked, NFTs
+  tracked, collectors who own from 2+ collections, custodial splits identified,
+  and the top collector — always reflecting everything you track, regardless
+  of the search/filter boxes below it.
 - **Change log sidebar**: a persistent right-hand panel (desktop only) showing
   holder balance changes detected between syncs (e.g. "wallet X: 2 → 1", "wallet
   Y: 0 → 1") for every tracked collection. Polls every 20s; new data only shows

@@ -1,3 +1,14 @@
+// Auto-compact formatting for stat-tile headline values (1,284 / 12.9K).
+export function formatCompactNumber(value: number): string {
+  if (value >= 10000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
 export function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }

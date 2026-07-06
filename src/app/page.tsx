@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CollectorCell } from "@/components/CollectorCell";
 import { CommentsCell } from "@/components/CommentsCell";
+import { StatsPanel } from "@/components/StatsPanel";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
 import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
 
@@ -127,6 +128,8 @@ export default function CollectorsPage() {
           )}
         </div>
       </div>
+
+      <StatsPanel />
 
       <div className="flex flex-wrap gap-3">
         <select
