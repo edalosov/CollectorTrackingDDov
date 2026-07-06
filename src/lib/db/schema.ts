@@ -129,3 +129,36 @@ export const custodialAllocations = pgTable(
     ),
   ],
 );
+
+// Precise, per-token version of a custodial split: this specific NFT
+// belongs to this named person. A token can only be assigned to one person
+// at a time. When any assignments exist for a name, they're the source of
+// truth for that person's count (and give them real thumbnails); a name
+// with no assignments falls back to custodialAllocations.count instead.
+export const custodialTokenAssignments = pgTable(
+  "custodial_token_assignments",
+  {
+    id: serial("id").primaryKey(),
+    walletAddress: text("wallet_address")
+      .notNull()
+      .references(() => wallets.address, { onDelete: "cascade" }),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    tokenId: text("token_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("custodial_token_assignments_wallet_collection_token_idx").on(
+      table.walletAddress,
+      table.collectionId,
+      table.tokenId,
+    ),
+    index("custodial_token_assignments_wallet_collection_name_idx").on(
+      table.walletAddress,
+      table.collectionId,
+      table.name,
+    ),
+  ],
+);

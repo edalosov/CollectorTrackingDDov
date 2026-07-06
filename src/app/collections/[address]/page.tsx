@@ -239,11 +239,16 @@ export default function CollectionDetailPage() {
                   )}
                 </td>
                 <td className="py-2 pr-4">
-                  {!h.isAllocation && (
+                  {h.heldTokens.length > 0 && (
                     <TokenThumbnails
                       contractAddress={collection.address}
                       tokens={h.heldTokens}
                     />
+                  )}
+                  {h.isAllocation && h.heldTokens.length === 0 && (
+                    <span className="text-xs italic text-neutral-600">
+                      exact tokens not assigned
+                    </span>
                   )}
                 </td>
               </tr>

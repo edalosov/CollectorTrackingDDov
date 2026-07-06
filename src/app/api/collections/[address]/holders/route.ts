@@ -5,6 +5,7 @@ import {
   collections,
   collectors,
   custodialAllocations,
+  custodialTokenAssignments,
   holdings,
   tokens,
   wallets,
@@ -58,14 +59,60 @@ export async function GET(
     .from(custodialAllocations)
     .where(eq(custodialAllocations.collectionId, collection.id));
 
-  const allocationsByWallet = new Map<
-    string,
-    { id: number; name: string; count: number }[]
-  >();
+  const assignmentRows = await db
+    .select()
+    .from(custodialTokenAssignments)
+    .where(eq(custodialTokenAssignments.collectionId, collection.id));
+
+  // wallet -> tokenId -> assigned name
+  const assignedNameByWalletToken = new Map<string, Map<string, string>>();
+  // wallet -> name -> number of specifically assigned tokens
+  const assignedCountByWalletName = new Map<string, Map<string, number>>();
+  for (const a of assignmentRows) {
+    const tokenMap =
+      assignedNameByWalletToken.get(a.walletAddress) ?? new Map<string, string>();
+    tokenMap.set(a.tokenId, a.name);
+    assignedNameByWalletToken.set(a.walletAddress, tokenMap);
+
+    const nameMap =
+      assignedCountByWalletName.get(a.walletAddress) ?? new Map<string, number>();
+    nameMap.set(a.name, (nameMap.get(a.name) ?? 0) + 1);
+    assignedCountByWalletName.set(a.walletAddress, nameMap);
+  }
+
+  // wallet -> name -> manual (rough) count
+  const manualCountByWalletName = new Map<string, Map<string, number>>();
   for (const a of allocationRows) {
-    const list = allocationsByWallet.get(a.walletAddress) ?? [];
-    list.push({ id: a.id, name: a.name, count: a.count });
-    allocationsByWallet.set(a.walletAddress, list);
+    const nameMap =
+      manualCountByWalletName.get(a.walletAddress) ?? new Map<string, number>();
+    nameMap.set(a.name, a.count);
+    manualCountByWalletName.set(a.walletAddress, nameMap);
+  }
+
+  // A name's effective count is its assigned-token count when any exist,
+  // otherwise it falls back to the manual count. Union of names from both
+  // sources, per wallet.
+  const allocationsByWallet = new Map<string, { name: string; count: number }[]>();
+  {
+    const namesByWallet = new Map<string, Set<string>>();
+    for (const [walletAddress, nameMap] of manualCountByWalletName) {
+      const set = namesByWallet.get(walletAddress) ?? new Set<string>();
+      for (const name of nameMap.keys()) set.add(name);
+      namesByWallet.set(walletAddress, set);
+    }
+    for (const [walletAddress, nameMap] of assignedCountByWalletName) {
+      const set = namesByWallet.get(walletAddress) ?? new Set<string>();
+      for (const name of nameMap.keys()) set.add(name);
+      namesByWallet.set(walletAddress, set);
+    }
+    for (const [walletAddress, names] of namesByWallet) {
+      const list = [...names].map((name) => {
+        const assignedCount = assignedCountByWalletName.get(walletAddress)?.get(name) ?? 0;
+        const manualCount = manualCountByWalletName.get(walletAddress)?.get(name) ?? 0;
+        return { name, count: assignedCount > 0 ? assignedCount : manualCount };
+      });
+      allocationsByWallet.set(walletAddress, list);
+    }
   }
 
   // Group by collector when the wallet belongs to one (so merged wallets
@@ -82,6 +129,8 @@ export async function GET(
     }
   >();
   const rawBalanceByWallet = new Map<string, number>();
+  // wallet -> name -> the specific tokens assigned to them (real thumbnails)
+  const assignedHeldTokensByWalletName = new Map<string, Map<string, HeldToken[]>>();
 
   for (const row of rows) {
     const groupKey =
@@ -95,11 +144,26 @@ export async function GET(
     };
     entry.walletAddresses.add(row.walletAddress);
     entry.tokenCount += row.balance;
-    entry.heldTokens.push({
+
+    const assignedName = assignedNameByWalletToken.get(row.walletAddress)?.get(row.tokenId);
+    const heldToken: HeldToken = {
       tokenId: row.tokenId,
       name: row.tokenName,
       imageUrl: row.tokenImageUrl,
-    });
+    };
+    if (assignedName) {
+      const nameMap =
+        assignedHeldTokensByWalletName.get(row.walletAddress) ?? new Map<string, HeldToken[]>();
+      const list = nameMap.get(assignedName) ?? [];
+      list.push(heldToken);
+      nameMap.set(assignedName, list);
+      assignedHeldTokensByWalletName.set(row.walletAddress, nameMap);
+    } else {
+      // Only tokens not specifically assigned to someone stay visible on the
+      // wallet's own row -- assigned ones are precisely accounted for below.
+      entry.heldTokens.push(heldToken);
+    }
+
     byGroup.set(groupKey, entry);
 
     rawBalanceByWallet.set(
@@ -161,7 +225,8 @@ export async function GET(
         nickname: a.name,
         walletAddresses: [walletAddress],
         tokenCount: a.count,
-        heldTokens: [],
+        heldTokens:
+          assignedHeldTokensByWalletName.get(walletAddress)?.get(a.name) ?? [],
         isAllocation: true,
         isCustodial: false,
         isOverAllocated: false,

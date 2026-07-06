@@ -71,6 +71,13 @@
       "when": 1783349295671,
       "tag": "0009_yielding_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783350768369,
+      "tag": "0010_salty_absorbing_man",
+      "breakpoints": true
     }
   ]
 }
