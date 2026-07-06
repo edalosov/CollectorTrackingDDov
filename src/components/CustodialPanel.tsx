@@ -186,7 +186,21 @@ export function CustodialPanel({
                         key={a.name}
                         className="flex items-center justify-between gap-2"
                       >
-                        <span className="text-neutral-300">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssignNameDrafts((prev) => ({
+                              ...prev,
+                              [entry.collectionId]: a.name,
+                            }));
+                            setExpandedTokens((prev) => ({
+                              ...prev,
+                              [entry.collectionId]: true,
+                            }));
+                          }}
+                          title="Assign more tokens to this person"
+                          className="text-left text-neutral-300 hover:underline"
+                        >
                           {a.name}: {a.count}
                           {a.assignedCount > 0 && (
                             <span className="ml-1 text-neutral-500">
@@ -194,7 +208,7 @@ export function CustodialPanel({
                               {a.assignedCount === 1 ? "" : "s"})
                             </span>
                           )}
-                        </span>
+                        </button>
                         {a.id != null && (
                           <button
                             type="button"
@@ -268,6 +282,32 @@ export function CustodialPanel({
 
                 {tokensShown && (
                   <div className="mt-1.5">
+                    {entry.allocations.length > 0 && (
+                      <div className="mb-1 flex flex-wrap gap-1">
+                        {entry.allocations.map((a) => {
+                          const active = assignNameDrafts[entry.collectionId] === a.name;
+                          return (
+                            <button
+                              key={a.name}
+                              type="button"
+                              onClick={() =>
+                                setAssignNameDrafts((prev) => ({
+                                  ...prev,
+                                  [entry.collectionId]: a.name,
+                                }))
+                              }
+                              className={`rounded border px-1.5 py-0.5 ${
+                                active
+                                  ? "border-emerald-600 bg-emerald-950 text-emerald-400"
+                                  : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                              }`}
+                            >
+                              {a.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     <input
                       value={assignNameDrafts[entry.collectionId] ?? ""}
                       onChange={(e) =>
@@ -276,9 +316,16 @@ export function CustodialPanel({
                           [entry.collectionId]: e.target.value,
                         }))
                       }
-                      placeholder="Assign clicked tokens to..."
+                      placeholder="...or type a new name"
                       className="mb-1.5 w-full rounded border border-neutral-700 bg-neutral-950 px-1.5 py-0.5"
                     />
+                    <p className="mb-1 text-neutral-500">
+                      Click a token below to assign it
+                      {assignNameDrafts[entry.collectionId]?.trim()
+                        ? ` to ${assignNameDrafts[entry.collectionId]!.trim()}`
+                        : ""}
+                      .
+                    </p>
                     <div className="flex max-h-40 flex-wrap gap-1 overflow-y-auto">
                       {entry.tokens.map((t) => (
                         <button
