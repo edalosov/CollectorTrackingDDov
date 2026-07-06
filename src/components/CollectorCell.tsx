@@ -98,8 +98,14 @@ export function CollectorCell({
       {showCustodial && (
         <CustodialPanel
           walletAddress={primaryAddress}
-          onClose={() => setShowCustodial(false)}
-          onChanged={onDataChanged}
+          onClose={() => {
+            setShowCustodial(false);
+            // Refresh the main table only now, not after every click inside
+            // the panel -- otherwise every assignment re-sorts the whole
+            // table by count and the row (and the open panel with it) jumps
+            // around mid-edit.
+            onDataChanged?.();
+          }}
         />
       )}
 

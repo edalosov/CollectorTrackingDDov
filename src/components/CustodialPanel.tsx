@@ -30,11 +30,9 @@ interface CollectionEntry {
 export function CustodialPanel({
   walletAddress,
   onClose,
-  onChanged,
 }: {
   walletAddress: string;
   onClose: () => void;
-  onChanged?: () => void;
 }) {
   const [entries, setEntries] = useState<CollectionEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +47,10 @@ export function CustodialPanel({
   );
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Deliberately doesn't flip `loading` back to true on refetches after
+    // the initial one -- otherwise every click briefly replaces the token
+    // grid with a "Loading..." placeholder, which felt like the whole panel
+    // resetting.
     const res = await fetch(`/api/wallets/${walletAddress}/custodial-allocations`);
     if (res.ok) {
       setEntries(await res.json());
@@ -91,7 +92,6 @@ export function CustodialPanel({
       }
       setDrafts((prev) => ({ ...prev, [collectionId]: { name: "", count: "" } }));
       await load();
-      onChanged?.();
     } finally {
       setSavingCollectionId(null);
     }
@@ -102,7 +102,6 @@ export function CustodialPanel({
       method: "DELETE",
     });
     await load();
-    onChanged?.();
   }
 
   async function handleTokenClick(
@@ -130,7 +129,6 @@ export function CustodialPanel({
       });
     }
     await load();
-    onChanged?.();
   }
 
   return (
