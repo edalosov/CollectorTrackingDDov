@@ -32,6 +32,18 @@ holders across all your tracked collections.
   name — useful when you know someone splits their collection across multiple
   wallets. Merged wallets show as a single row everywhere, with their holdings
   combined.
+- **Custodial wallets**: click the **C** button next to any wallet's row to
+  record a per-collection breakdown of who a shared/custodial wallet actually
+  holds NFTs for (e.g. an exchange or vault address holding on behalf of
+  several people). Add a name and a count for each person, per collection.
+  The wallet's own displayed count becomes the *unallocated remainder*, and
+  each named split shows up as its own row (marked "custodial", no
+  thumbnails — the exact tokens per person aren't tracked, just the count you
+  enter) so nothing gets double-counted. These splits are manual bookkeeping,
+  deliberately kept separate from the nickname/merge system above, and don't
+  auto-update if the wallet's real balance changes on a later sync (an
+  "over-allocated" warning shows if your splits now add up to more than the
+  wallet actually holds).
 
 Syncing is manual only — nothing polls Alchemy in the background, so you
 control when API calls happen. This intentionally does not track transfer
@@ -99,6 +111,10 @@ If you ever want to run it on your own machine instead:
   rising). Unlike `holdings`/`tokens`, this is append-only — never deleted,
   only added to on each sync — since it's a history log, not a current-state
   snapshot.
+- `custodial_allocations`: one row per (wallet, collection, name) manual
+  split — how many of a custodial wallet's NFTs in a given collection belong
+  to a named person. Intentionally not linked to `collectors`; these are
+  unverified bookkeeping claims, not on-chain fact.
 
 ## Useful scripts
 

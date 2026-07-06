@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { collections, collectors, holdings, tokens, wallets } from "@/lib/db/schema";
+import {
+  collections,
+  collectors,
+  custodialAllocations,
+  holdings,
+  tokens,
+  wallets,
+} from "@/lib/db/schema";
 
 interface HeldToken {
   tokenId: string;
@@ -64,6 +71,7 @@ export async function GET(req: NextRequest) {
       byCollection: Map<number, CollectionBreakdown>;
     }
   >();
+  const rawBalanceByWalletCollection = new Map<string, Map<number, number>>();
 
   for (const row of rows) {
     const groupKey =
@@ -95,29 +103,148 @@ export async function GET(req: NextRequest) {
     entry.byCollection.set(row.collectionId, breakdown);
 
     byGroup.set(groupKey, entry);
+
+    const walletBalances =
+      rawBalanceByWalletCollection.get(row.walletAddress) ?? new Map<number, number>();
+    walletBalances.set(
+      row.collectionId,
+      (walletBalances.get(row.collectionId) ?? 0) + row.balance,
+    );
+    rawBalanceByWalletCollection.set(row.walletAddress, walletBalances);
   }
 
-  const collectionIdFilter = collectionIdParam ? Number(collectionIdParam) : null;
+  const allocationRows = await db
+    .select({
+      walletAddress: custodialAllocations.walletAddress,
+      collectionId: custodialAllocations.collectionId,
+      collectionAddress: collections.address,
+      collectionName: collections.name,
+      name: custodialAllocations.name,
+      count: custodialAllocations.count,
+    })
+    .from(custodialAllocations)
+    .innerJoin(collections, eq(collections.id, custodialAllocations.collectionId));
 
-  let results = [...byGroup.entries()].map(([groupKey, v]) => {
-    const collectionsList = [...v.byCollection.values()].sort(
-      (a, b) => b.count - a.count,
-    );
-    const filteredCount = collectionIdFilter
-      ? (collectionsList.find((c) => c.collectionId === collectionIdFilter)
-          ?.count ?? 0)
-      : v.totalCount;
+  const allocatedByWalletCollection = new Map<string, Map<number, number>>();
+  for (const a of allocationRows) {
+    const walletMap =
+      allocatedByWalletCollection.get(a.walletAddress) ?? new Map<number, number>();
+    walletMap.set(a.collectionId, (walletMap.get(a.collectionId) ?? 0) + a.count);
+    allocatedByWalletCollection.set(a.walletAddress, walletMap);
+  }
 
-    return {
+  interface ResultRow {
+    groupKey: string;
+    collectorId: number | null;
+    walletAddresses: string[];
+    nickname: string | null;
+    notes: string | null;
+    totalCount: number;
+    collections: CollectionBreakdown[];
+    isAllocation: boolean;
+    isCustodial: boolean;
+    isOverAllocated: boolean;
+  }
+
+  const walletGroupResults: ResultRow[] = [];
+
+  // A wallet with custodial allocations shows its *unallocated* remainder
+  // per collection here, so counts never double-count against the named
+  // allocation rows added below.
+  for (const [groupKey, v] of byGroup) {
+    let isCustodial = false;
+    let isOverAllocated = false;
+
+    for (const walletAddress of v.walletAddresses) {
+      const allocatedByCollection = allocatedByWalletCollection.get(walletAddress);
+      if (!allocatedByCollection) continue;
+
+      for (const [collectionId, allocatedTotal] of allocatedByCollection) {
+        isCustodial = true;
+        const rawBalance =
+          rawBalanceByWalletCollection.get(walletAddress)?.get(collectionId) ?? 0;
+        if (allocatedTotal > rawBalance) isOverAllocated = true;
+        const unallocated = Math.max(0, rawBalance - allocatedTotal);
+        const delta = unallocated - rawBalance;
+
+        v.totalCount += delta;
+        const breakdown = v.byCollection.get(collectionId);
+        if (breakdown) breakdown.count += delta;
+      }
+    }
+
+    walletGroupResults.push({
       groupKey,
       collectorId: v.collectorId,
       walletAddresses: [...v.walletAddresses],
       nickname: v.nickname,
       notes: v.notes,
       totalCount: v.totalCount,
-      collections: collectionsList,
-      filteredCount,
+      collections: [...v.byCollection.values()],
+      isAllocation: false,
+      isCustodial,
+      isOverAllocated,
+    });
+  }
+
+  // Named custodial allocations combine across collections for the same
+  // (wallet, name) pair into their own group, same shape as a real collector.
+  const allocationGroups = new Map<
+    string,
+    {
+      walletAddress: string;
+      nickname: string;
+      totalCount: number;
+      byCollection: Map<number, CollectionBreakdown>;
+    }
+  >();
+
+  for (const a of allocationRows) {
+    const key = `alloc:${a.walletAddress}:${a.name}`;
+    const entry = allocationGroups.get(key) ?? {
+      walletAddress: a.walletAddress,
+      nickname: a.name,
+      totalCount: 0,
+      byCollection: new Map<number, CollectionBreakdown>(),
     };
+    entry.totalCount += a.count;
+    const breakdown = entry.byCollection.get(a.collectionId) ?? {
+      collectionId: a.collectionId,
+      address: a.collectionAddress,
+      name: a.collectionName,
+      count: 0,
+      heldTokens: [],
+    };
+    breakdown.count += a.count;
+    entry.byCollection.set(a.collectionId, breakdown);
+    allocationGroups.set(key, entry);
+  }
+
+  const allocationResults: ResultRow[] = [...allocationGroups.entries()].map(
+    ([groupKey, v]) => ({
+      groupKey,
+      collectorId: null,
+      walletAddresses: [v.walletAddress],
+      nickname: v.nickname,
+      notes: null,
+      totalCount: v.totalCount,
+      collections: [...v.byCollection.values()],
+      isAllocation: true,
+      isCustodial: false,
+      isOverAllocated: false,
+    }),
+  );
+
+  const collectionIdFilter = collectionIdParam ? Number(collectionIdParam) : null;
+
+  let results = [...walletGroupResults, ...allocationResults].map((r) => {
+    const collectionsList = [...r.collections].sort((a, b) => b.count - a.count);
+    const filteredCount = collectionIdFilter
+      ? (collectionsList.find((c) => c.collectionId === collectionIdFilter)
+          ?.count ?? 0)
+      : r.totalCount;
+
+    return { ...r, collections: collectionsList, filteredCount };
   });
 
   if (collectionIdFilter) {

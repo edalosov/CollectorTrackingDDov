@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CollectorCell } from "@/components/CollectorCell";
 import { CommentsCell } from "@/components/CommentsCell";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
-import { shortenAddress } from "@/lib/format";
+import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
 
 interface CollectionOption {
   id: number;
@@ -35,6 +35,9 @@ interface CollectorRow {
   totalCount: number;
   filteredCount: number;
   collections: CollectionBreakdown[];
+  isAllocation: boolean;
+  isCustodial: boolean;
+  isOverAllocated: boolean;
 }
 
 export default function CollectorsPage() {
@@ -187,20 +190,51 @@ export default function CollectorsPage() {
               >
                 <td className="py-2 pr-4 text-neutral-500">{i + 1}</td>
                 <td className="py-2 pr-4">
-                  <CollectorCell
-                    walletAddresses={r.walletAddresses}
-                    nickname={r.nickname}
-                    onSaved={(nickname) =>
-                      setRows((prev) =>
-                        prev.map((p) =>
-                          p.groupKey === r.groupKey ? { ...p, nickname } : p,
-                        ),
-                      )
-                    }
-                    onMerged={load}
-                  />
+                  {r.isAllocation ? (
+                    <div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {r.nickname}
+                        <span className="rounded border border-amber-700 px-1 text-[10px] font-normal text-amber-500">
+                          custodial
+                        </span>
+                      </div>
+                      <a
+                        href={etherscanAddressUrl(r.walletAddresses[0])}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-neutral-500 hover:underline"
+                      >
+                        via {shortenAddress(r.walletAddresses[0])}
+                      </a>
+                    </div>
+                  ) : (
+                    <CollectorCell
+                      walletAddresses={r.walletAddresses}
+                      nickname={r.nickname}
+                      onSaved={(nickname) =>
+                        setRows((prev) =>
+                          prev.map((p) =>
+                            p.groupKey === r.groupKey ? { ...p, nickname } : p,
+                          ),
+                        )
+                      }
+                      onDataChanged={load}
+                    />
+                  )}
                 </td>
-                <td className="py-2 pr-4 font-medium">{r.filteredCount}</td>
+                <td className="py-2 pr-4 font-medium">
+                  {r.filteredCount}
+                  {r.isCustodial && (
+                    <span className="ml-1 text-xs font-normal text-neutral-500">
+                      unallocated
+                    </span>
+                  )}
+                  {r.isOverAllocated && (
+                    <span className="ml-1 text-xs font-normal text-red-400">
+                      over-allocated
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 pr-4">
                   <div className="flex flex-col gap-3">
                     {r.collections.map((c) => (

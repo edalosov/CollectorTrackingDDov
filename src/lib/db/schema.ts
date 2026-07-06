@@ -102,3 +102,30 @@ export const ownershipChanges = pgTable(
     index("ownership_changes_detected_idx").on(table.detectedAt),
   ],
 );
+
+// A manual, per-collection breakdown of who a custodial wallet actually
+// holds NFTs on behalf of. Deliberately its own thing, not linked to
+// `collectors` — these are unverified bookkeeping claims (no way to derive
+// them from chain data), kept separate from real wallet-based nicknames.
+export const custodialAllocations = pgTable(
+  "custodial_allocations",
+  {
+    id: serial("id").primaryKey(),
+    walletAddress: text("wallet_address")
+      .notNull()
+      .references(() => wallets.address, { onDelete: "cascade" }),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    count: integer("count").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("custodial_allocations_wallet_collection_name_idx").on(
+      table.walletAddress,
+      table.collectionId,
+      table.name,
+    ),
+  ],
+);

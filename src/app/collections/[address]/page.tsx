@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CollectorCell } from "@/components/CollectorCell";
 import { TokenThumbnails } from "@/components/TokenThumbnails";
-import { etherscanAddressUrl } from "@/lib/format";
+import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
 
 interface HeldToken {
   tokenId: string;
@@ -19,6 +19,9 @@ interface Holder {
   nickname: string | null;
   tokenCount: number;
   heldTokens: HeldToken[];
+  isAllocation: boolean;
+  isCustodial: boolean;
+  isOverAllocated: boolean;
 }
 
 interface CollectionInfo {
@@ -190,25 +193,58 @@ export default function CollectionDetailPage() {
               >
                 <td className="py-2 pr-4 text-neutral-500">{i + 1}</td>
                 <td className="py-2 pr-4">
-                  <CollectorCell
-                    walletAddresses={h.walletAddresses}
-                    nickname={h.nickname}
-                    onSaved={(nickname) =>
-                      setHolders((prev) =>
-                        prev.map((p) =>
-                          p.groupKey === h.groupKey ? { ...p, nickname } : p,
-                        ),
-                      )
-                    }
-                    onMerged={load}
-                  />
+                  {h.isAllocation ? (
+                    <div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {h.nickname}
+                        <span className="rounded border border-amber-700 px-1 text-[10px] font-normal text-amber-500">
+                          custodial
+                        </span>
+                      </div>
+                      <a
+                        href={etherscanAddressUrl(h.walletAddresses[0])}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-neutral-500 hover:underline"
+                      >
+                        via {shortenAddress(h.walletAddresses[0])}
+                      </a>
+                    </div>
+                  ) : (
+                    <CollectorCell
+                      walletAddresses={h.walletAddresses}
+                      nickname={h.nickname}
+                      onSaved={(nickname) =>
+                        setHolders((prev) =>
+                          prev.map((p) =>
+                            p.groupKey === h.groupKey ? { ...p, nickname } : p,
+                          ),
+                        )
+                      }
+                      onDataChanged={load}
+                    />
+                  )}
                 </td>
-                <td className="py-2 pr-4 font-medium">{h.tokenCount}</td>
+                <td className="py-2 pr-4 font-medium">
+                  {h.tokenCount}
+                  {h.isCustodial && (
+                    <span className="ml-1 text-xs font-normal text-neutral-500">
+                      unallocated
+                    </span>
+                  )}
+                  {h.isOverAllocated && (
+                    <span className="ml-1 text-xs font-normal text-red-400">
+                      over-allocated
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 pr-4">
-                  <TokenThumbnails
-                    contractAddress={collection.address}
-                    tokens={h.heldTokens}
-                  />
+                  {!h.isAllocation && (
+                    <TokenThumbnails
+                      contractAddress={collection.address}
+                      tokens={h.heldTokens}
+                    />
+                  )}
                 </td>
               </tr>
             ))}

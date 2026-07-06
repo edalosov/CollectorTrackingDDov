@@ -2,24 +2,26 @@
 
 import { useState } from "react";
 import { NicknameEditor } from "@/components/NicknameEditor";
+import { CustodialPanel } from "@/components/CustodialPanel";
 import { etherscanAddressUrl, shortenAddress } from "@/lib/format";
 
 export function CollectorCell({
   walletAddresses,
   nickname,
   onSaved,
-  onMerged,
+  onDataChanged,
 }: {
   walletAddresses: string[];
   nickname: string | null;
   onSaved?: (nickname: string | null) => void;
-  onMerged?: () => void;
+  onDataChanged?: () => void;
 }) {
   const primaryAddress = walletAddresses[0];
   const [adding, setAdding] = useState(false);
   const [newAddress, setNewAddress] = useState("");
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCustodial, setShowCustodial] = useState(false);
 
   async function handleAddWallet(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +40,7 @@ export function CollectorCell({
       }
       setNewAddress("");
       setAdding(false);
-      onMerged?.();
+      onDataChanged?.();
     } finally {
       setMerging(false);
     }
@@ -62,6 +64,14 @@ export function CollectorCell({
             +
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setShowCustodial((v) => !v)}
+          title="This is a custodial wallet — split its NFTs among named holders"
+          className="rounded border border-neutral-700 px-1 text-xs leading-4 text-neutral-500 hover:text-neutral-200"
+        >
+          C
+        </button>
       </div>
 
       {adding && (
@@ -84,6 +94,14 @@ export function CollectorCell({
         </form>
       )}
       {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {showCustodial && (
+        <CustodialPanel
+          walletAddress={primaryAddress}
+          onClose={() => setShowCustodial(false)}
+          onChanged={onDataChanged}
+        />
+      )}
 
       <div className="flex flex-col">
         {walletAddresses.map((addr) => (
