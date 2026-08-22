@@ -22,7 +22,11 @@ holders across all your tracked collections.
   the top shows overview numbers — total collectors, collections tracked, NFTs
   tracked, collectors who own from 2+ collections, custodial splits identified,
   and the top collector — always reflecting everything you track, regardless
-  of the search/filter boxes below it.
+  of the search/filter boxes below it. A **Download Excel** button exports the
+  currently filtered/searched view as a `.xlsx` file with two sheets: an
+  Overview (the same stats as the panel) and a Collectors table — name, type
+  (wallet vs. custodial split), wallet address(es), NFT count, one column per
+  tracked collection, and notes.
 - **Change log sidebar**: a persistent right-hand panel (desktop only) showing
   holder balance changes detected between syncs (e.g. "wallet X: 2 → 1", "wallet
   Y: 0 → 1") for every tracked collection. Polls every 20s; new data only shows

@@ -78,6 +78,14 @@ export default function CollectorsPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
+  const exportParams = new URLSearchParams();
+  if (collectionId) exportParams.set("collectionId", collectionId);
+  if (minCount) exportParams.set("minCount", minCount);
+  if (maxCount) exportParams.set("maxCount", maxCount);
+  if (search) exportParams.set("search", search);
+  const exportQuery = exportParams.toString();
+  const exportUrl = `/api/collectors/export${exportQuery ? `?${exportQuery}` : ""}`;
+
   async function handleSyncAll() {
     setSyncingAll(true);
     setSyncAllResult(null);
@@ -114,13 +122,21 @@ export default function CollectorsPage() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <button
-            onClick={handleSyncAll}
-            disabled={syncingAll}
-            className="rounded bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900 disabled:opacity-50"
-          >
-            {syncingAll ? "Syncing all..." : "Sync all collections"}
-          </button>
+          <div className="flex gap-2">
+            <a
+              href={exportUrl}
+              className="rounded border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-900"
+            >
+              Download Excel
+            </a>
+            <button
+              onClick={handleSyncAll}
+              disabled={syncingAll}
+              className="rounded bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900 disabled:opacity-50"
+            >
+              {syncingAll ? "Syncing all..." : "Sync all collections"}
+            </button>
+          </div>
           {syncAllResult && (
             <p className="max-w-xs text-right text-xs text-neutral-500">
               {syncAllResult}

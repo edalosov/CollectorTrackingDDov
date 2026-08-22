@@ -348,3 +348,60 @@ export async function getCollectorGroups(): Promise<CollectorGroupsResult> {
 
   return { groups, collectionCount: allCollections.length };
 }
+
+export interface CollectorGroupWithFilteredCount extends CollectorGroup {
+  filteredCount: number;
+}
+
+export interface CollectorGroupFilters {
+  collectionId?: number | null;
+  minCount?: number | null;
+  maxCount?: number | null;
+  search?: string;
+}
+
+// Shared by /api/collectors (the dashboard table) and /api/collectors/export
+// (the Excel download), so the two always agree on what "currently filtered"
+// means.
+export function filterAndSortCollectorGroups(
+  groups: CollectorGroup[],
+  filters: CollectorGroupFilters,
+): CollectorGroupWithFilteredCount[] {
+  const collectionIdFilter = filters.collectionId ?? null;
+  const search = filters.search?.trim().toLowerCase() ?? "";
+
+  let results: CollectorGroupWithFilteredCount[] = groups.map((r) => {
+    const filteredCount = collectionIdFilter
+      ? (r.collections.find((c) => c.collectionId === collectionIdFilter)?.count ?? 0)
+      : r.totalCount;
+    return { ...r, filteredCount };
+  });
+
+  if (collectionIdFilter) {
+    results = results.filter((r) =>
+      r.collections.some((c) => c.collectionId === collectionIdFilter),
+    );
+  }
+
+  if (filters.minCount != null) {
+    const min = filters.minCount;
+    results = results.filter((r) => r.filteredCount >= min);
+  }
+
+  if (filters.maxCount != null) {
+    const max = filters.maxCount;
+    results = results.filter((r) => r.filteredCount <= max);
+  }
+
+  if (search) {
+    results = results.filter(
+      (r) =>
+        r.walletAddresses.some((a) => a.includes(search)) ||
+        (r.nickname?.toLowerCase().includes(search) ?? false),
+    );
+  }
+
+  results.sort((a, b) => b.filteredCount - a.filteredCount);
+
+  return results;
+}
